@@ -1,0 +1,9 @@
+node_modules/
+.next/
+out/
+.env.local
+dist/
+media-archive/
+*.zip
+WhatsApp Image*.jpeg
+WhatsApp Video*.mp4
