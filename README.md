@@ -1,25 +1,52 @@
-# Celebrations06
+# The Celebrations
 
-An asset-led, cinematic public site for Celebrations06. The supplied WhatsApp photos and video assets are unpacked in `public/media/`, while a curated selection is served from `dist/media/` for the static experience.
+An immersive, cinematic website for The Celebrations, built with Next.js (App Router), React Three Fiber, custom GLSL, GSAP ScrollTrigger and Lenis. Supabase, Resend, Google Calendar/Meet and Instagram power the business side. Art direction is documented in [`docs/ART-DIRECTION.md`](docs/ART-DIRECTION.md).
 
-## Current public experience
+## Run
 
-- Cinematic video hero and behind-the-scenes chapter
-- Responsive project portfolio using supplied event photos
-- Interactive visual concept board with draggable floral/table elements and palette choices
-- Consultation date/time preference interface in `Asia/Karachi`
-- Contact and inquiry interfaces
+```bash
+npm install
+cp .env.example .env.local   # fill in what you have; everything degrades gracefully
+npm run dev
+```
 
-The local interfaces intentionally state that they are previews where live functionality would require configuration. They do not claim to submit messages, reserve times, create Meet links, or email customers.
+Without any environment variables the public site runs fully on the supplied launch media. Forms answer honestly that online submission isn't connected yet, and the admin portal shows setup instructions.
 
-## Production integration
+## Homepage chapters
 
-The included schema in `supabase/migrations/20261121_celebrations06.sql` establishes core tables for portfolio, inquiries, visual design submissions, and consultation bookings. A Next.js server layer should use the variables in `.env.example` to:
+| # | Chapter | Implementation |
+| --- | --- | --- |
+| 01 | Opening | R3F scene: three arched **video portals** using a custom `DistortionMaterial` (pointer ripple, scroll-velocity bend, noise reveal, arch SDF mask with gilt rim), a `MeshReflectorMaterial` floor on capable GPUs, `Noise` + `Vignette` post-processing, pointer camera parallax, and a pinned ScrollTrigger that dollies the camera through the centre portal into an ivory arch |
+| 02 | Transformation | Pinned, scrubbed 96-frame canvas image sequence from the business's own aisle setup timelapse; the frame grows from an arch to full bleed while the type moves through three phases |
+| 03 | Gallery | R3F curved exhibition wall (`ImmersiveGallery`): scroll and drag rotate it, the active work comes forward, neighbours dim and desaturate, shader hover distortion, click opens the project |
+| 04 | Art of Celebration | Pinned category sequence; `ImageTransitionMaterial` noise-dissolve morphs, atmosphere colour and masked type per category |
+| 05 | Event Studio | Theme selector with a shader morph leads into `/design-your-event` |
+| 06 | Behind the Magic | Pinned four-step story (Imagine, Create, Transform, Celebrate) from real setup videos, with arch-masked transitions and a full-screen reveal |
+| 07 | Client Stories | Approved Instagram testimonials only; an honest empty state otherwise |
+| 08 | Invitation | A small arch expands into a full-bleed candlelit video; the closing CTAs follow |
 
-1. Validate and persist public form submissions with Zod.
-2. Enforce authenticated admin-only writes and reads with Supabase RLS plus server-side role checks.
-3. Create Google Calendar events and Meet conferences only after a successful server-side availability check.
-4. Send Resend notifications from a verified domain.
-5. Store the event-designer JSON and preview image in Supabase Storage.
+Global pieces: Lenis on the GSAP ticker, a velvet curtain page transition (`Curtain` + `TransitionLink`), a full-screen menu, a precise-pointer cursor, SplitText reveals, adaptive DPR and quality tiers, and a WebGL fallback for every scene. Reduced motion is respected throughout.
 
-No credentials are included, and no third-party service is represented as connected.
+## Event Studio (`/design-your-event`)
+
+- **Moodboard (React Konva):** templates, event type and style, an editable palette, backgrounds, a decor library (arch, florals, candles, drape, sofa, tables, runner, lantern, crystal hanging, text), drag, resize and rotate with a Transformer, layers, duplicate and delete, keyboard nudging, undo/redo, reference image uploads, JPEG export, and a local draft.
+- **3D concept (R3F):** a stylized, palette-driven scene built from primitives and instanced blooms, with orbit and zoom, ceremony/stage/banquet arrangements, golden/candlelit/daylight lighting and décor toggles. It is labelled as not to scale.
+- **Submission:** contact details, date, location, guests, budget, concept and requests, the full configuration JSON, the board preview, a 3D snapshot and references. Images go to the private `submissions` bucket, the row goes to `event_design_submissions`, and the client gets a Resend acknowledgement while the team gets an alert.
+
+## Backend setup
+
+1. Create a Supabase project and run `supabase/migrations/*.sql` in order.
+2. Create an admin user in Supabase Auth, then run `insert into public.admin_users (user_id) values ('<auth user id>');`
+3. Fill in `.env.local`. Visit `/admin/integrations` to connect Google (Calendar + Meet) and Instagram.
+4. In Admin, add portfolio projects, categories and templates. Published database content replaces the launch content automatically.
+
+| Integration | What it does |
+| --- | --- |
+| Supabase | Content, portfolio, submissions, bookings (an exclusion constraint prevents double booking), testimonials, availability, encrypted OAuth tokens, storage |
+| Resend | Client confirmations and team notifications for studio concepts, bookings and inquiries |
+| Google | OAuth (offline) → free/busy filtering of slots and calendar events with real **Google Meet** links; cancelling in admin cancels the event |
+| Instagram | Meta Graph API via Facebook Login; comment import and a signed webhook (`/api/instagram/webhook`) create **pending** testimonials for moderation |
+
+## Media
+
+`node scripts/prepare-media.mjs` regenerates `public/media` from the WhatsApp originals (requires the `ffmpeg-static` dev dependency). See `ASSET-MANIFEST.md`.

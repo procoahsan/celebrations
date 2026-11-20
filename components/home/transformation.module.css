@@ -1,0 +1,62 @@
+.section {
+  position: relative;
+  height: 100svh;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--ivory);
+  color: var(--nocturne);
+}
+
+.frame {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  clip-path: inset(14% 34% 6% 34% round 999px 999px 0 0);
+  background: #1a1414;
+}
+.canvas { width: 100%; height: 100%; display: block; transform-origin: 50% 60%; }
+.veil { position: absolute; inset: 0; opacity: 0; background: linear-gradient(180deg, rgba(15, 11, 12, 0.78) 0%, rgba(15, 11, 12, 0.4) 38%, rgba(15, 11, 12, 0.15) 60%, rgba(15, 11, 12, 0.7) 100%); }
+
+.copy {
+  position: absolute;
+  inset: calc(var(--nav-h) + 1rem) var(--gutter) auto var(--gutter);
+  z-index: 2;
+  color: var(--nocturne);
+  pointer-events: none;
+  /* Ivory halo while the type is dark, so letters stay readable where they cross the photo. */
+  text-shadow: 0 0 0.35em rgba(242, 235, 225, 0.95), 0 0 0.9em rgba(242, 235, 225, 0.7);
+}
+.phrases { position: relative; margin-top: 2.5rem; font-size: clamp(3rem, 8.2vw, 9.5rem); line-height: 0.9; }
+.phrase { position: absolute; left: 0; top: 0; margin: 0; max-width: 11ch; display: flex; flex-wrap: wrap; column-gap: 0.22em; }
+.phrase em { color: var(--rouge); }
+.final { font-size: 1.45em; max-width: none; }
+.final em { color: inherit; }
+.mask { display: inline-block; overflow: hidden; padding-bottom: 0.08em; }
+.word { display: inline-block; will-change: transform; }
+.phrase[data-phase="1"] .word, .phrase[data-phase="2"] .word { transform: translateY(110%); }
+
+.meta {
+  position: absolute;
+  right: var(--gutter);
+  bottom: 5vh;
+  z-index: 2;
+  display: grid;
+  justify-items: end;
+  gap: 0.35rem;
+  color: var(--nocturne);
+}
+.dim { opacity: 0.5; margin-right: 0.6rem; }
+.note { opacity: 0.6; margin-top: 0.6rem; max-width: 22ch; text-align: right; line-height: 1.6; }
+.progress { position: absolute; right: -1.4rem; bottom: 0; width: 1px; height: 7.5rem; background: currentColor; opacity: 0.35; }
+.progress span { position: absolute; inset: 0; background: var(--rouge); transform-origin: top; transform: scaleY(0); }
+
+:global(.reduced-motion) .phrase { position: static; }
+:global(.reduced-motion) .word { transform: none !important; }
+:global(.reduced-motion) .frame { clip-path: inset(40% 0 0 0); }
+
+@media (max-width: 767px) {
+  .frame { clip-path: inset(16% 14% 10% 14% round 999px 999px 0 0); }
+  .phrases { font-size: clamp(2.6rem, 13vw, 4.5rem); }
+  .meta { bottom: 3vh; }
+  .progress { display: none; }
+}

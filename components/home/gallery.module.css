@@ -1,0 +1,43 @@
+.section { position: relative; height: 100svh; min-height: 580px; overflow: hidden; background: var(--nocturne); }
+.stage { position: absolute; inset: 0; touch-action: pan-y; }
+.canvas { position: absolute; inset: 0; }
+
+.header {
+  position: absolute; z-index: 2; top: calc(var(--nav-h) + 0.5rem); left: var(--gutter); right: var(--gutter);
+  display: flex; justify-content: space-between; align-items: baseline; pointer-events: none;
+}
+.count { font-size: 13px; }
+
+.caption {
+  position: absolute; z-index: 2; left: var(--gutter); bottom: 9vh; max-width: min(42rem, 60vw);
+  pointer-events: none;
+}
+.title { margin: 0.6rem 0 0.9rem; font-size: clamp(2.8rem, 6.4vw, 7rem); line-height: 0.9; }
+.titleLink { pointer-events: auto; display: inline-block; transition: color .6s var(--ease-expo); }
+.titleLink:hover { color: var(--gilt); font-style: italic; }
+.summary { margin: 0; max-width: 30rem; color: color-mix(in srgb, var(--ivory) 72%, transparent); font-size: 1rem; }
+
+.index { position: absolute; z-index: 2; right: var(--gutter); bottom: 9vh; }
+.index ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.15rem; justify-items: end; }
+.index button {
+  display: flex; gap: 0.8rem; align-items: baseline; padding: 0.25rem 0; background: none; border: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--ivory) 40%, transparent);
+  transition: color 0.4s;
+}
+.index button:hover, .index button.on { color: var(--ivory); }
+.index button.on .indexName { max-width: 20ch; opacity: 1; }
+.indexName { max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0; transition: max-width .7s var(--ease-expo), opacity .4s; }
+.index button:hover .indexName { max-width: 20ch; opacity: 1; }
+
+.fallback { position: absolute; inset: 0; display: flex; gap: 2rem; align-items: center; overflow-x: auto; scroll-snap-type: x mandatory; padding: 0 var(--gutter); list-style: none; margin: 0; }
+.fallback li { flex: 0 0 min(62vw, 340px); scroll-snap-align: center; }
+.fallback img { width: 100%; aspect-ratio: 0.66; object-fit: cover; border-radius: 999px 999px 0 0; }
+.fallback span { display: block; margin-top: 1rem; font-size: 1.8rem; }
+
+@media (max-width: 767px) {
+  .caption { max-width: none; right: var(--gutter); bottom: 6vh; }
+  .summary { display: none; }
+  .index { display: none; }
+}
+
+.scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(15, 11, 12, 0.65) 0%, transparent 18%, transparent 52%, rgba(15, 11, 12, 0.85) 100%), linear-gradient(90deg, rgba(15, 11, 12, 0.55) 0%, transparent 45%); }
