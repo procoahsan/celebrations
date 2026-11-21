@@ -3,7 +3,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, type RootState } from "@react-three/fiber";
 import { ContactShadows, OrbitControls, RoundedBox } from "@react-three/drei";
-import { useStudio, type Arrangement, type Lighting } from "@/lib/studio/store";
+import { deriveToggles, useStudio, type Arrangement, type Lighting } from "@/lib/studio/store";
 import { dprFor } from "@/lib/device";
 import { useExperience } from "@/lib/store";
 
@@ -177,8 +177,11 @@ function Seating({ palette, arrangement }: { palette: string[]; arrangement: Arr
   );
 }
 
-function Tables({ palette }: { palette: string[] }) {
-  const spots: [number, number][] = [[-2.4, 1.6], [0, 2.3], [2.4, 1.6], [-1.3, 3.6], [1.3, 3.6]];
+function Tables({ palette, arrangement }: { palette: string[]; arrangement: Arrangement }) {
+  // Tables stay clear of the aisle and stage: flanking for a ceremony, in front for a stage, filling the room for a dinner.
+  const spots: [number, number][] = arrangement === "ceremony" ? [[-3.2, 1.4], [3.2, 1.4], [-3.4, 3.6], [3.4, 3.6]]
+    : arrangement === "stage" ? [[-2.6, 2.6], [2.6, 2.6], [0, 4.2]]
+    : [[-2.4, 1.6], [0, 2.3], [2.4, 1.6], [-1.3, 3.6], [1.3, 3.6]];
   const chairColor = palette[1] ?? palette[0];
   return (
     <group>
@@ -209,7 +212,9 @@ function Runner({ palette }: { palette: string[] }) {
 }
 
 function Scene() {
-  const { palette, lighting, arrangement, toggles } = useStudio();
+  const { palette, lighting, arrangement, items } = useStudio();
+  // Same décor as the moodboard: whatever is on the board appears here.
+  const toggles = deriveToggles(items);
   const L = LIGHTS[lighting];
   const aisle: [number, number, number][] = arrangement === "banquet"
     ? [[-3.2, 1.1, -0.8], [3.2, 1.1, -0.8], [-1.3, 0.9, 1.5], [1.3, 0.9, 1.5]]
@@ -231,7 +236,7 @@ function Scene() {
       {toggles.drape && <Drape palette={palette} />}
       {toggles.arch && <Arch palette={palette} />}
       {toggles.seating && <Seating palette={palette} arrangement={arrangement} />}
-      {toggles.tables && <Tables palette={palette} />}
+      {toggles.tables && <Tables palette={palette} arrangement={arrangement} />}
       {toggles.runner && arrangement !== "banquet" && <Runner palette={palette} />}
       {toggles.florals && <Florals palette={palette} positions={floralSpots} />}
       {toggles.candles && <Candles positions={aisle} intensity={L.candle} />}

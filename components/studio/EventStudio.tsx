@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RootState } from "@react-three/fiber";
 import { gsap, SplitText, useGSAP } from "@/lib/motion/gsap";
 import { useExperience } from "@/lib/store";
-import { PREVIEW_TOGGLES, serializeStudio, useStudio, type DecorType, type Lighting, type Arrangement } from "@/lib/studio/store";
+import { DECOR, PREVIEW_TOGGLES, deriveToggles, serializeStudio, useStudio, type DecorType, type Lighting, type Arrangement } from "@/lib/studio/store";
 import type { StudioTemplate } from "@/lib/types";
 import ExperienceCanvas from "@/components/webgl/ExperienceCanvas";
 import type { MoodboardHandle } from "./MoodboardCanvas";
@@ -16,12 +16,24 @@ const ConceptPreview3D = dynamic(() => import("./ConceptPreview3D"), { ssr: fals
 const MorphPlane = dynamic(() => import("@/components/webgl/scenes/MorphPlane"), { ssr: false });
 
 const EVENT_TYPES = ["Nikkah", "Mehndi", "Wedding", "Walima / Reception", "Engagement", "Birthday", "Corporate", "Private celebration"];
-const STYLES = ["Romantic & floral", "Regal & opulent", "Modern & minimal", "Festive & colourful", "Rustic & natural"];
-const LIBRARY: { type: DecorType; label: string }[] = [
-  { type: "arch", label: "Floral arch" }, { type: "floral", label: "Floral cluster" }, { type: "candles", label: "Candle stand" },
-  { type: "drape", label: "Backdrop drape" }, { type: "sofa", label: "Stage sofa" }, { type: "table", label: "Round table" },
-  { type: "runner", label: "Aisle runner" }, { type: "lantern", label: "Lantern" }, { type: "chandelier", label: "Crystal hanging" }, { type: "text", label: "Text" },
+/** Extra moodboard-only touches (shown in the moodboard tools). */
+const EXTRAS: { type: DecorType; label: string }[] = [
+  { type: "floral", label: "More flowers" }, { type: "candles", label: "More candles" }, { type: "lantern", label: "Lantern" },
+  { type: "chandelier", label: "Crystal hanging" }, { type: "table", label: "Another table" }, { type: "text", label: "Add text" },
 ];
+const EXTRA_LABEL: Partial<Record<DecorType, string>> = { lantern: "Lantern", chandelier: "Crystal hanging", text: "Text" };
+const DECOR_BY_TYPE = Object.fromEntries(Object.values(DECOR).map((d) => [d.type, d])) as Partial<Record<DecorType, (typeof DECOR)[keyof typeof DECOR]>>;
+const LAYOUTS: { value: Arrangement; label: string; hint: string }[] = [
+  { value: "ceremony", label: "Ceremony aisle", hint: "Arch at the front, aisle down the middle" },
+  { value: "stage", label: "Stage & lounge", hint: "A styled stage with seating" },
+  { value: "banquet", label: "Dinner reception", hint: "Guest tables around the room" },
+];
+const LIGHTS: { value: Lighting; label: string; hint: string }[] = [
+  { value: "golden", label: "Golden hour", hint: "Warm and glowing" },
+  { value: "candlelit", label: "Candlelight evening", hint: "Dark, romantic, candles on" },
+  { value: "daylight", label: "Bright daytime", hint: "Clear and airy" },
+];
+const TIP_KEY = "c06-studio-tip";
 const BACKGROUNDS = ["#efe8dc", "#f7f3ec", "#2a1013", "#1b2420", "#2b1606", "#e9dcc9", "#d9d4e6"];
 const DRAFT_KEY = "c06-studio-draft";
 
@@ -32,7 +44,9 @@ export default function EventStudio({ templates, initialTheme, title, statement 
   const [phase, setPhase] = useState<"intro" | "workspace">("intro");
   const [themeIndex, setThemeIndex] = useState(() => Math.max(0, templates.findIndex((t) => t.slug === initialTheme)));
   const [drawer, setDrawer] = useState(false);
-  const [panel, setPanel] = useState<"concept" | "elements" | "inspect">("concept");
+  const [showTip, setShowTip] = useState(false);
+  useEffect(() => { try { setShowTip(!localStorage.getItem(TIP_KEY)); } catch { setShowTip(true); } }, []);
+  const dismissTip = () => { setShowTip(false); try { localStorage.setItem(TIP_KEY, "1"); } catch { /* ignore */ } };
   const reduced = useExperience((s) => s.reducedMotion);
   const studio = useStudio();
   const selected = studio.items.find((i) => i.id === studio.selectedId) ?? null;
@@ -55,12 +69,12 @@ export default function EventStudio({ templates, initialTheme, title, statement 
   useEffect(() => {
     const id = window.setTimeout(() => {
       try {
-        const { items, background, palette, templateSlug, eventType, style, lighting, arrangement, toggles, references } = useStudio.getState();
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ items, background, palette, templateSlug, eventType, style, lighting, arrangement, toggles, references }));
+        const { items, background, palette, templateSlug, eventType, style, lighting, arrangement, references } = useStudio.getState();
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ items, background, palette, templateSlug, eventType, style, lighting, arrangement, references }));
       } catch { /* quota or private mode */ }
     }, 600);
     return () => window.clearTimeout(id);
-  }, [studio.items, studio.background, studio.palette, studio.eventType, studio.style, studio.lighting, studio.arrangement, studio.toggles, studio.references]);
+  }, [studio.items, studio.background, studio.palette, studio.eventType, studio.style, studio.lighting, studio.arrangement, studio.references]);
 
   // Intro choreography.
   useGSAP(() => {
@@ -81,8 +95,17 @@ export default function EventStudio({ templates, initialTheme, title, statement 
 
   const enterWorkspace = () => {
     const q = gsap.utils.selector(root);
-    const done = () => { setPhase("workspace"); window.scrollTo(0, 0); requestAnimationFrame(() => document.getElementById("workspace-title")?.focus()); };
+    let entered = false;
+    const done = () => {
+      if (entered) return;
+      entered = true;
+      setPhase("workspace");
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => document.getElementById("workspace-title")?.focus());
+    };
     if (reduced) return done();
+    // Never let a slow/throttled animation hold the visitor back.
+    window.setTimeout(done, 1600);
     gsap.timeline({ onComplete: done })
       .to(q("[data-intro-fade], [data-intro-title]"), { autoAlpha: 0, y: -30, duration: 0.6, stagger: 0.03, ease: "power3.in" })
       .to(q("[data-intro-frame]"), { clipPath: "inset(0% 0% 100% 0% round 0 0 0 0)", duration: 0.9, ease: "curtain" }, 0.2);
@@ -175,136 +198,148 @@ export default function EventStudio({ templates, initialTheme, title, statement 
     );
   }
 
+  const toggles = deriveToggles(studio.items);
+  const is3d = studio.mode === "3d";
+  const selectedLabel = selected ? EXTRA_LABEL[selected.type] ?? DECOR_BY_TYPE[selected.type]?.label ?? "Inspiration photo" : "";
+
   return (
     <div key="workspace" ref={root} className={styles.workspace}>
+      {/* ---------- Top bar ---------- */}
       <div className={styles.bar} data-ws-bar>
-        <h1 id="workspace-title" tabIndex={-1} className="display text-2xl outline-none md:text-3xl">Event Studio</h1>
-        <div className={styles.modes} role="tablist" aria-label="View mode">
-          <button role="tab" aria-selected={studio.mode === "board"} onClick={() => studio.set({ mode: "board" })}>Moodboard · 2D</button>
-          <button role="tab" aria-selected={studio.mode === "3d"} onClick={() => studio.set({ mode: "3d" })}>Concept · 3D</button>
+        <div>
+          <h1 id="workspace-title" tabIndex={-1} className="display text-2xl outline-none md:text-3xl">Event Studio</h1>
+          <p className="mt-1 text-sm text-nocturne/60">Build your look on the left. Everything updates both views.</p>
         </div>
+
+        <div className="grid justify-items-center gap-1.5">
+          <div className={styles.modes} role="tablist" aria-label="How to view your design">
+            <button role="tab" aria-selected={!is3d} onClick={() => studio.set({ mode: "board" })}><span aria-hidden>▦</span> Moodboard</button>
+            <button role="tab" aria-selected={is3d} onClick={() => studio.set({ mode: "3d" })}><span aria-hidden>◈</span> 3D view</button>
+          </div>
+          <span className="text-xs text-nocturne/55">Same design, two ways to look at it</span>
+        </div>
+
         <div className={styles.actions}>
-          <button type="button" onClick={studio.undo} disabled={!studio.past.length} aria-label="Undo" title="Undo (Ctrl+Z)">↶</button>
-          <button type="button" onClick={studio.redo} disabled={!studio.future.length} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button>
-          <button type="button" onClick={exportPng} className={styles.textBtn}>Export image</button>
+          <button type="button" onClick={studio.undo} disabled={!studio.past.length} className={styles.textBtn} title="Undo (Ctrl+Z)">↶ Undo</button>
+          <button type="button" onClick={studio.redo} disabled={!studio.future.length} className={styles.textBtn} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+          <button type="button" onClick={() => { if (theme && window.confirm("Start over from the selected look? You can still undo.")) studio.startOver(theme); }} className={styles.textBtn}>Start over</button>
+          <button type="button" onClick={exportPng} className={styles.textBtn}>Save picture</button>
           <button type="button" onClick={() => setDrawer(true)} className="btn-portal ink !py-3"><span className="dot" />Send to our designers</button>
         </div>
       </div>
 
+      {showTip && (
+        <div className={styles.tip} role="note">
+          <span><strong>New here?</strong> 1) Pick what you&apos;re celebrating and a look. 2) Choose colours and décor. 3) Switch to <em>3D view</em> to walk around it, then send it to us. Nothing is booked until we talk.</span>
+          <button type="button" onClick={dismissTip} aria-label="Hide tip">Got it</button>
+        </div>
+      )}
+
       <div className={styles.grid}>
-        <aside className={styles.left} data-ws-panel aria-label="Concept and elements">
-          <div className={styles.tabs} role="tablist">
-            <button role="tab" aria-selected={panel === "concept"} onClick={() => setPanel("concept")}>Concept</button>
-            <button role="tab" aria-selected={panel === "elements"} onClick={() => setPanel("elements")}>Elements</button>
-            <button role="tab" aria-selected={panel === "inspect"} onClick={() => setPanel("inspect")} className="lg:hidden">Selected</button>
-          </div>
-
-          {panel === "concept" && (
-            <div className={styles.panelBody}>
-              <label className="field"><span>Event type</span>
-                <select value={studio.eventType} onChange={(e) => studio.set({ eventType: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {EVENT_TYPES.map((t) => <option key={t}>{t}</option>)}
-                </select>
-              </label>
-              <label className="field"><span>Design style</span>
-                <select value={studio.style} onChange={(e) => studio.set({ style: e.target.value })}>
-                  <option value="">Choose…</option>
-                  {[...new Set([studio.style, ...STYLES].filter(Boolean))].map((t) => <option key={t}>{t}</option>)}
-                </select>
-              </label>
-              <div>
-                <p className={styles.groupLabel}>Template</p>
-                <div className={styles.templateList}>
-                  {templates.map((t, i) => (
-                    <button key={t.slug} type="button" onClick={() => chooseTheme(i)} aria-pressed={studio.templateSlug === t.slug}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={t.image.replace(".jpg", "-sm.jpg")} alt="" />
-                      <span>{t.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className={styles.groupLabel}>Palette <span className="opacity-50">· click to change</span></p>
-                <div className="flex gap-2">
-                  {studio.palette.map((c, i) => (
-                    <label key={i} className={styles.colorInput} style={{ background: c }}>
-                      <span className="sr-only">Palette colour {i + 1}</span>
-                      <input type="color" value={c} onChange={(e) => studio.setPaletteColor(i, e.target.value)} />
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className={styles.groupLabel}>Background</p>
-                <div className="flex flex-wrap gap-2">
-                  {BACKGROUNDS.map((c) => <button key={c} type="button" aria-label={`Background ${c}`} aria-pressed={studio.background === c} onClick={() => studio.setBackground(c)} className={styles.bgSwatch} style={{ background: c }} />)}
-                </div>
-              </div>
-              <div>
-                <p className={styles.groupLabel}>Reference images <span className="opacity-50">· up to 6</span></p>
-                <label className={styles.upload}>
-                  <input type="file" accept="image/*" multiple onChange={(e) => { onUpload(e.target.files); e.target.value = ""; }} />
-                  <span>Upload inspiration</span>
-                </label>
-                {studio.references.length > 0 && (
-                  <ul className={styles.refs}>
-                    {studio.references.map((r) => (
-                      <li key={r.id}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={r.dataUrl} alt={r.name} />
-                        <button type="button" onClick={() => studio.removeReference(r.id)} aria-label={`Remove ${r.name}`}>×</button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+        {/* ---------- Left: guided steps (apply to both views) ---------- */}
+        <aside className={styles.left} data-ws-panel aria-label="Design steps">
+          <section className={styles.step}>
+            <h2 className={styles.stepTitle}><span>1</span> What are you celebrating?</h2>
+            <div className={styles.chips}>
+              {EVENT_TYPES.map((t) => (
+                <button key={t} type="button" aria-pressed={studio.eventType === t} onClick={() => studio.set({ eventType: t })}>{t}</button>
+              ))}
             </div>
-          )}
+          </section>
 
-          {panel === "elements" && (
-            <div className={styles.panelBody}>
-              <p className={styles.groupLabel}>Add to the board</p>
-              <div className={styles.library}>
-                {LIBRARY.map((l) => (
-                  <button key={l.type} type="button" onClick={() => { studio.addItem(l.type); studio.set({ mode: "board" }); }}>
-                    <span aria-hidden className={styles.libIcon} data-type={l.type} />
-                    {l.label}
-                  </button>
-                ))}
-              </div>
-              <p className={styles.groupLabel}>Layers <span className="opacity-50">· top first</span></p>
-              <ol className={styles.layers}>
-                {[...studio.items].reverse().map((it) => (
-                  <li key={it.id}>
-                    <button type="button" onClick={() => studio.select(it.id)} aria-pressed={it.id === studio.selectedId}>
-                      <i style={{ background: it.color }} /> {LIBRARY.find((l) => l.type === it.type)?.label ?? "Reference image"}
-                    </button>
+          <section className={styles.step}>
+            <h2 className={styles.stepTitle}><span>2</span> Pick a look</h2>
+            <p className={styles.stepHint}>A starting point you can change. Picking a look replaces the current layout (Undo brings it back).</p>
+            <div className={styles.templateList}>
+              {templates.map((t, i) => (
+                <button key={t.slug} type="button" onClick={() => chooseTheme(i)} aria-pressed={studio.templateSlug === t.slug}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={t.image.replace(".jpg", "-sm.jpg")} alt="" />
+                  <span>{t.name}{studio.templateSlug === t.slug && " ✓"}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.step}>
+            <h2 className={styles.stepTitle}><span>3</span> Your colours</h2>
+            <p className={styles.stepHint}>Tap a colour to change it. All matching décor updates.</p>
+            <div className="flex flex-wrap gap-3">
+              {studio.palette.map((c, i) => (
+                <label key={i} className="grid cursor-pointer justify-items-center gap-1 text-xs text-nocturne/70">
+                  <span className={styles.colorInput} style={{ background: c }}>
+                    <input type="color" value={c} onChange={(e) => studio.setPaletteColor(i, e.target.value)} aria-label={`Change colour ${i + 1}`} />
+                  </span>
+                  {theme?.palette.find((p) => p.hex.toLowerCase() === c.toLowerCase())?.name ?? `Colour ${i + 1}`}
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.step}>
+            <h2 className={styles.stepTitle}><span>4</span> Choose your décor</h2>
+            <p className={styles.stepHint}>Switch items on or off. They appear on the moodboard and in 3D.</p>
+            <ul className={styles.decorList}>
+              {PREVIEW_TOGGLES.map((key) => (
+                <li key={key}>
+                  <label className={styles.decorRow}>
+                    <span>
+                      <strong>{DECOR[key].label}</strong>
+                      <small>{DECOR[key].hint}</small>
+                    </span>
+                    <input type="checkbox" role="switch" checked={toggles[key]} onChange={(e) => studio.setDecor(key, e.target.checked)} />
+                    <i aria-hidden className={styles.switch} />
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className={styles.step}>
+            <h2 className={styles.stepTitle}><span>5</span> Inspiration photos <em className="font-normal not-italic text-nocturne/50">(optional)</em></h2>
+            <p className={styles.stepHint}>Add up to 6 pictures you love. They&apos;re pinned to your moodboard and sent with your design.</p>
+            <label className={styles.upload}>
+              <input type="file" accept="image/*" multiple onChange={(e) => { onUpload(e.target.files); e.target.value = ""; }} />
+              <span>＋ Add photos</span>
+            </label>
+            {studio.references.length > 0 && (
+              <ul className={styles.refs}>
+                {studio.references.map((r) => (
+                  <li key={r.id}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={r.dataUrl} alt={r.name} />
+                    <button type="button" onClick={() => studio.removeReference(r.id)} aria-label={`Remove ${r.name}`}>×</button>
                   </li>
                 ))}
-              </ol>
-            </div>
-          )}
-
-          {panel === "inspect" && <div className={`${styles.panelBody} lg:hidden`}>{Inspector()}</div>}
+              </ul>
+            )}
+          </section>
         </aside>
 
-        <section className={styles.stage} data-ws-stage aria-label={studio.mode === "board" ? "Moodboard canvas" : "3D concept preview"}>
-          <div className={styles.stageInner} style={{ aspectRatio: studio.mode === "board" ? "10 / 7" : undefined }}>
-            <MoodboardCanvas visible={studio.mode === "board"} handleRef={board} />
-            {studio.mode === "3d" && (
+        {/* ---------- Centre: the design ---------- */}
+        <section className={styles.stage} data-ws-stage aria-label={is3d ? "3D view of your design" : "Moodboard of your design"}>
+          <div className={styles.stageLabel}>
+            <span className="label">{is3d ? "3D view" : "Moodboard"}</span>
+            <span className="text-xs text-nocturne/60">{is3d ? "Drag to look around · scroll or pinch to zoom" : "Drag items to move them · tap an item to edit it"}</span>
+          </div>
+          <div className={styles.stageInner} style={{ aspectRatio: is3d ? undefined : "10 / 7" }}>
+            <MoodboardCanvas visible={!is3d} handleRef={board} />
+            {is3d && (
               <div className={styles.three}>
-                <ConceptPreview3D onReady={(s) => { three.current = s; }} />
-                <p className={`label ${styles.disclaimer}`}>Stylized concept preview · not to scale · décor availability confirmed in consultation</p>
+                <ConceptPreview3D onReady={(st) => { three.current = st; }} />
+                <p className={`label ${styles.disclaimer}`}>Concept preview · not to scale · final décor confirmed in consultation</p>
               </div>
             )}
           </div>
-          <p className={styles.hint}>{studio.mode === "board" ? "Drag to place · corners to resize and rotate · Delete removes · arrows nudge" : "Drag to orbit · scroll or pinch to zoom"}</p>
+          <div className={styles.stageFooter}>
+            <span className="text-sm text-nocturne/70">Happy with it? Send it to our team and we&apos;ll get back to you with ideas and a quote.</span>
+            <button type="button" onClick={() => setDrawer(true)} className="btn-portal ink !py-3"><span className="dot" />Send to our designers</button>
+          </div>
         </section>
 
-        <aside className={styles.right} data-ws-panel aria-label={studio.mode === "board" ? "Selected element" : "3D preview options"}>
-          {studio.mode === "board" ? <div className="hidden lg:block">{Inspector()}</div> : PreviewOptions()}
+        {/* ---------- Right: tools for the current view only ---------- */}
+        <aside className={styles.right} data-ws-panel aria-label={is3d ? "3D view settings" : "Moodboard tools"}>
+          {is3d ? ThreeDPanel() : BoardPanel()}
         </aside>
       </div>
 
@@ -312,79 +347,95 @@ export default function EventStudio({ templates, initialTheme, title, statement 
     </div>
   );
 
-  function Inspector() {
-    if (!selected) return <p className="text-sm opacity-60">Select an element on the board to adjust its colour, size, rotation and layer.</p>;
-    return (
-      <div className="grid gap-5">
-        <p className={styles.groupLabel}>{LIBRARY.find((l) => l.type === selected.type)?.label ?? "Reference image"}</p>
-        {selected.type === "text" && (
-          <label className="field"><span>Text</span><input value={selected.text ?? ""} onChange={(e) => studio.updateItem(selected.id, { text: e.target.value }, false)} onBlur={() => studio.checkpoint()} maxLength={60} /></label>
-        )}
-        {selected.type !== "image" && (
-          <div>
-            <p className={styles.groupLabel}>Colour</p>
-            <div className="flex gap-2">
-              {studio.palette.map((c) => <button key={c} type="button" aria-label={`Use ${c}`} aria-pressed={selected.color === c} onClick={() => studio.updateItem(selected.id, { color: c })} className={styles.bgSwatch} style={{ background: c }} />)}
-            </div>
+  function BoardPanel() {
+    if (selected) {
+      return (
+        <div className="grid gap-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className={styles.panelTitle}>Edit: {selectedLabel}</h2>
+            <button type="button" onClick={() => studio.select(null)} className="text-sm text-nocturne/60 underline">Done</button>
           </div>
-        )}
-        <label className="field"><span>Size · {Math.round(selected.scale * 100)}%</span>
-          <input type="range" min={0.3} max={2.5} step={0.05} value={selected.scale} onChange={(e) => studio.updateItem(selected.id, { scale: Number(e.target.value) }, false)} onPointerUp={() => studio.checkpoint()} />
-        </label>
-        <label className="field"><span>Rotation · {Math.round(selected.rotation)}°</span>
-          <input type="range" min={-180} max={180} step={1} value={selected.rotation} onChange={(e) => studio.updateItem(selected.id, { rotation: Number(e.target.value) }, false)} onPointerUp={() => studio.checkpoint()} />
-        </label>
-        <div className={styles.inspectorBtns}>
-          <button type="button" onClick={() => studio.reorder(selected.id, "up")}>Bring forward</button>
-          <button type="button" onClick={() => studio.reorder(selected.id, "down")}>Send back</button>
-          <button type="button" onClick={() => studio.duplicateItem(selected.id)}>Duplicate</button>
-          <button type="button" onClick={() => studio.removeItem(selected.id)} className={styles.danger}>Remove</button>
+          {selected.type === "text" && (
+            <label className="field"><span>Your text</span><input value={selected.text ?? ""} onChange={(e) => studio.updateItem(selected.id, { text: e.target.value }, false)} onBlur={() => studio.checkpoint()} maxLength={60} /></label>
+          )}
+          {selected.type !== "image" && (
+            <div>
+              <p className={styles.groupLabel}>Colour</p>
+              <div className="flex gap-2">
+                {studio.palette.map((c) => <button key={c} type="button" aria-label={`Use colour ${c}`} aria-pressed={selected.color === c} onClick={() => studio.updateItem(selected.id, { color: c })} className={styles.bgSwatch} style={{ background: c }} />)}
+              </div>
+            </div>
+          )}
+          <label className="field"><span>Size</span>
+            <span className="flex items-center gap-2 text-xs text-nocturne/60">Smaller<input className="flex-1" type="range" min={0.3} max={2.5} step={0.05} value={selected.scale} onChange={(e) => studio.updateItem(selected.id, { scale: Number(e.target.value) }, false)} onPointerUp={() => studio.checkpoint()} />Bigger</span>
+          </label>
+          <label className="field"><span>Turn</span>
+            <input type="range" min={-180} max={180} step={1} value={selected.rotation} onChange={(e) => studio.updateItem(selected.id, { rotation: Number(e.target.value) }, false)} onPointerUp={() => studio.checkpoint()} />
+          </label>
+          <div className={styles.inspectorBtns}>
+            <button type="button" onClick={() => studio.reorder(selected.id, "top")}>Bring to front</button>
+            <button type="button" onClick={() => studio.reorder(selected.id, "bottom")}>Send to back</button>
+            <button type="button" onClick={() => studio.duplicateItem(selected.id)}>Make a copy</button>
+            <button type="button" onClick={() => studio.removeItem(selected.id)} className={styles.danger}>Delete</button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="grid gap-6">
+        <div>
+          <h2 className={styles.panelTitle}>Moodboard tips</h2>
+          <ul className="mt-3 grid gap-2 text-sm text-nocturne/75">
+            <li>• <strong>Move:</strong> drag any item.</li>
+            <li>• <strong>Edit:</strong> tap an item to resize, recolour or delete it.</li>
+            <li>• <strong>Mistake?</strong> Press Undo at the top.</li>
+          </ul>
+        </div>
+        <div>
+          <p className={styles.groupLabel}>Extra touches</p>
+          <div className={styles.library}>
+            {EXTRAS.map((x) => (
+              <button key={x.type} type="button" onClick={() => studio.addItem(x.type)}>
+                <span aria-hidden className={styles.libIcon} data-type={x.type} />
+                {x.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className={styles.groupLabel}>Board background</p>
+          <div className="flex flex-wrap gap-2">
+            {BACKGROUNDS.map((c) => <button key={c} type="button" aria-label={`Background ${c}`} aria-pressed={studio.background === c} onClick={() => studio.setBackground(c)} className={styles.bgSwatch} style={{ background: c }} />)}
+          </div>
         </div>
       </div>
     );
   }
 
-  function PreviewOptions() {
+  function ThreeDPanel() {
     return (
       <div className="grid gap-6">
         <div>
-          <p className={styles.groupLabel}>Arrangement</p>
-          <div className={styles.segment}>
-            {(["ceremony", "stage", "banquet"] as Arrangement[]).map((a) => (
-              <button key={a} type="button" aria-pressed={studio.arrangement === a} onClick={() => studio.set({ arrangement: a })}>{a}</button>
+          <h2 className={styles.panelTitle}>Room layout</h2>
+          <div className={styles.optionCards}>
+            {LAYOUTS.map((o) => (
+              <button key={o.value} type="button" aria-pressed={studio.arrangement === o.value} onClick={() => studio.set({ arrangement: o.value })}>
+                <strong>{o.label}</strong><small>{o.hint}</small>
+              </button>
             ))}
           </div>
         </div>
         <div>
-          <p className={styles.groupLabel}>Lighting</p>
-          <div className={styles.segment}>
-            {(["golden", "candlelit", "daylight"] as Lighting[]).map((l) => (
-              <button key={l} type="button" aria-pressed={studio.lighting === l} onClick={() => studio.set({ lighting: l })}>{l}</button>
+          <h2 className={styles.panelTitle}>Lighting</h2>
+          <div className={styles.optionCards}>
+            {LIGHTS.map((o) => (
+              <button key={o.value} type="button" aria-pressed={studio.lighting === o.value} onClick={() => studio.set({ lighting: o.value })}>
+                <strong>{o.label}</strong><small>{o.hint}</small>
+              </button>
             ))}
           </div>
         </div>
-        <div>
-          <p className={styles.groupLabel}>Décor</p>
-          <div className="grid gap-2">
-            {PREVIEW_TOGGLES.map((t) => (
-              <label key={t} className={styles.toggle}>
-                <input type="checkbox" checked={studio.toggles[t]} onChange={() => studio.toggle(t)} />
-                <span className="capitalize">{t}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className={styles.groupLabel}>Theme colours</p>
-          <div className="flex gap-2">
-            {studio.palette.map((c, i) => (
-              <label key={i} className={styles.colorInput} style={{ background: c }}>
-                <span className="sr-only">Palette colour {i + 1}</span>
-                <input type="color" value={c} onChange={(e) => studio.setPaletteColor(i, e.target.value)} />
-              </label>
-            ))}
-          </div>
-        </div>
+        <p className="text-sm text-nocturne/65">Colours and décor are set on the left and stay the same in both views.</p>
       </div>
     );
   }

@@ -23,7 +23,7 @@
 .actions > button:disabled { opacity: .35; cursor: not-allowed; }
 .textBtn { padding: 0 1rem; font-family: var(--font-mono); font-size: 11px !important; letter-spacing: .14em; text-transform: uppercase; }
 
-.grid { display: grid; grid-template-columns: 290px minmax(0, 1fr) 260px; gap: 1.2rem; align-items: start; }
+.grid { display: grid; grid-template-columns: 320px minmax(0, 1fr) 280px; gap: 1.2rem; align-items: start; }
 .left, .right { background: #f4f0e8; padding: 1.2rem; min-height: 60svh; }
 .tabs { display: flex; gap: 1.2rem; border-bottom: 1px solid rgba(15, 11, 12, 0.12); margin-bottom: 1.2rem; }
 .tabs button { background: none; border: 0; padding: 0 0 0.6rem; cursor: pointer; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .5; border-bottom: 1px solid transparent; margin-bottom: -1px; }
@@ -60,7 +60,7 @@
 .layers button[aria-pressed="true"] { background: rgba(155, 28, 46, 0.1); }
 .layers i { width: 10px; height: 10px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
 
-.stage { position: relative; }
+.stage { position: relative; min-width: 0; }
 .stageInner { position: relative; width: 100%; background: #fff; box-shadow: 0 30px 60px -30px rgba(15, 11, 12, 0.35); overflow: hidden; }
 .three { position: relative; height: min(70svh, 640px); }
 .disclaimer { position: absolute; left: 1rem; bottom: 1rem; right: 1rem; color: rgba(255,255,255,.75); pointer-events: none; mix-blend-mode: difference; }
@@ -87,12 +87,57 @@
 .alert { background: rgba(155, 28, 46, 0.08); border-left: 2px solid var(--rouge); padding: 0.8rem 1rem; margin: 0; }
 
 @media (max-width: 1100px) {
-  .grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
   .stage { order: -1; }
   .left, .right { min-height: 0; }
 }
 @media (max-width: 900px) {
   .intro { grid-template-columns: 1fr; }
-  .introFrame { height: 56svh; order: -1; }
+  .introFrame { height: 56svh; order: -1; margin-bottom: 2.6rem; }
   .themeRow { grid-template-columns: 1fr; }
+}
+
+/* ---------- Guided, plain-language workspace ---------- */
+.tip { display: flex; gap: 1rem; align-items: center; justify-content: space-between; background: #fbf6ec; border: 1px solid rgba(200, 164, 106, 0.5); padding: 0.85rem 1rem; margin-bottom: 1.2rem; font-size: 0.92rem; line-height: 1.5; }
+.tip button { flex: none; border: 0; background: var(--nocturne); color: var(--ivory); padding: 0.55rem 1rem; border-radius: 999px; cursor: pointer; font-size: 0.85rem; }
+
+.left { position: sticky; top: calc(var(--nav-h) + 0.5rem); max-height: calc(100svh - var(--nav-h) - 1.5rem); overflow-y: auto; display: grid; gap: 0; padding: 0; }
+.right { position: sticky; top: calc(var(--nav-h) + 0.5rem); }
+.step { padding: 1.1rem 1.2rem 1.3rem; border-bottom: 1px solid rgba(15, 11, 12, 0.08); }
+.stepTitle { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.7rem; font-size: 1rem; font-weight: 600; }
+.stepTitle > span { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--nocturne); color: var(--ivory); font-size: 0.75rem; font-family: var(--font-mono); }
+.stepHint { margin: -0.3rem 0 0.8rem; font-size: 0.82rem; line-height: 1.45; color: rgba(15, 11, 12, 0.6); }
+.panelTitle { margin: 0 0 0.7rem; font-size: 1rem; font-weight: 600; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chips button { padding: 0.5rem 0.85rem; border-radius: 999px; border: 1px solid rgba(15, 11, 12, 0.2); background: #fff; font-size: 0.85rem; cursor: pointer; transition: background .25s, color .25s, border-color .25s; }
+.chips button:hover { border-color: var(--nocturne); }
+.chips button[aria-pressed="true"] { background: var(--nocturne); color: var(--ivory); border-color: var(--nocturne); }
+
+.decorList { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
+.decorRow { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.7rem 0.8rem; background: #fff; border: 1px solid rgba(15, 11, 12, 0.1); cursor: pointer; transition: border-color .25s; }
+.decorRow:hover { border-color: rgba(15, 11, 12, 0.35); }
+.decorRow > span { display: grid; gap: 0.1rem; }
+.decorRow strong { font-size: 0.92rem; font-weight: 600; }
+.decorRow small { font-size: 0.76rem; color: rgba(15, 11, 12, 0.55); line-height: 1.35; }
+.decorRow input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.switch { position: relative; flex: none; width: 40px; height: 22px; border-radius: 999px; background: rgba(15, 11, 12, 0.2); transition: background .25s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .25s var(--ease-expo); }
+.decorRow input:checked ~ .switch { background: var(--rouge); }
+.decorRow input:checked ~ .switch::after { transform: translateX(18px); }
+.decorRow input:focus-visible ~ .switch { outline: 2px solid var(--gilt); outline-offset: 2px; }
+
+.stageLabel { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; justify-content: space-between; margin-bottom: 0.6rem; }
+.stageFooter { display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; align-items: center; justify-content: space-between; margin-top: 1rem; padding: 1rem 1.1rem; background: #f4f0e8; }
+
+.optionCards { display: grid; gap: 0.45rem; }
+.optionCards button { display: grid; gap: 0.15rem; text-align: left; padding: 0.75rem 0.9rem; border: 1px solid rgba(15, 11, 12, 0.15); background: #fff; cursor: pointer; transition: border-color .25s, background .25s; }
+.optionCards button strong { font-size: 0.92rem; }
+.optionCards button small { font-size: 0.78rem; color: rgba(15, 11, 12, 0.55); }
+.optionCards button:hover { border-color: var(--nocturne); }
+.optionCards button[aria-pressed="true"] { border-color: var(--rouge); background: rgba(155, 28, 46, 0.06); box-shadow: inset 3px 0 0 var(--rouge); }
+
+@media (max-width: 1100px) {
+  .left, .right { position: static; max-height: none; overflow: visible; }
+  .bar { justify-content: flex-start; }
 }

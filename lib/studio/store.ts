@@ -31,6 +31,23 @@ export type Arrangement = "ceremony" | "stage" | "banquet";
 export const PREVIEW_TOGGLES = ["arch", "florals", "candles", "drape", "seating", "tables", "runner"] as const;
 export type PreviewToggle = (typeof PREVIEW_TOGGLES)[number];
 
+/**
+ * One décor list drives both views: each décor family maps to a moodboard element. The 3D preview shows
+ * exactly the families present on the board, so switching views never changes the design.
+ */
+export const DECOR: Record<PreviewToggle, { type: DecorType; label: string; hint: string; spots: Array<[number, number, number?]> }> = {
+  arch: { type: "arch", label: "Floral arch", hint: "A flower-covered arch to frame the moment", spots: [[0.5, 0.38, 1.2]] },
+  florals: { type: "floral", label: "Flower arrangements", hint: "Clusters of fresh-look blooms", spots: [[0.3, 0.62], [0.7, 0.62]] },
+  candles: { type: "candles", label: "Candle stands", hint: "Tall gold stands with candles", spots: [[0.16, 0.7], [0.84, 0.7]] },
+  drape: { type: "drape", label: "Backdrop drapes", hint: "Fabric backdrop behind the stage", spots: [[0.5, 0.27, 1.25]] },
+  seating: { type: "sofa", label: "Stage seating", hint: "A sofa or bench for the couple / guest of honour", spots: [[0.5, 0.56]] },
+  tables: { type: "table", label: "Guest tables", hint: "Round dining tables with chairs", spots: [[0.26, 0.74], [0.74, 0.74]] },
+  runner: { type: "runner", label: "Aisle runner", hint: "A petal-strewn walkway", spots: [[0.5, 0.87]] },
+};
+
+export const deriveToggles = (items: StudioItem[]) =>
+  Object.fromEntries(PREVIEW_TOGGLES.map((k) => [k, items.some((i) => i.type === DECOR[k].type)])) as Record<PreviewToggle, boolean>;
+
 interface Snapshot { items: StudioItem[]; background: string; palette: string[] }
 
 interface StudioState extends Snapshot {
@@ -41,7 +58,6 @@ interface StudioState extends Snapshot {
   mode: "board" | "3d";
   lighting: Lighting;
   arrangement: Arrangement;
-  toggles: Record<PreviewToggle, boolean>;
   references: ReferenceImage[];
   past: Snapshot[];
   future: Snapshot[];
@@ -55,7 +71,10 @@ interface StudioState extends Snapshot {
   setBackground: (color: string) => void;
   setPaletteColor: (index: number, color: string) => void;
   set: (patch: Partial<Pick<StudioState, "eventType" | "style" | "mode" | "lighting" | "arrangement">>) => void;
-  toggle: (key: PreviewToggle) => void;
+  /** Turn a décor family on (places it on the board) or off (removes it) in both views. */
+  setDecor: (key: PreviewToggle, on: boolean) => void;
+  /** Restart from the current template. */
+  startOver: (template: StudioTemplate) => void;
   addReference: (ref: ReferenceImage) => void;
   removeReference: (id: string) => void;
   undo: () => void;
@@ -82,7 +101,6 @@ export const useStudio = create<StudioState>((set, get) => {
     mode: "board",
     lighting: "golden",
     arrangement: "ceremony",
-    toggles: { arch: true, florals: true, candles: true, drape: true, seating: true, tables: false, runner: true },
     references: [],
     past: [],
     future: [],
@@ -97,7 +115,6 @@ export const useStudio = create<StudioState>((set, get) => {
       set({
         templateSlug: t.slug, items, palette, background: t.background, selectedId: null,
         eventType: get().eventType || t.eventTypes[0] || "", style: t.mood, lighting: t.lighting, arrangement: t.arrangement,
-        toggles: { arch: t.arrangement === "ceremony" || t.layout.some((l) => l.type === "arch"), florals: true, candles: true, drape: t.arrangement !== "ceremony", seating: t.arrangement !== "banquet", tables: t.arrangement === "banquet", runner: t.arrangement === "ceremony" },
       });
     },
     addItem: (type, extra) => {
@@ -143,7 +160,21 @@ export const useStudio = create<StudioState>((set, get) => {
       });
     },
     set: (patch) => set(patch),
-    toggle: (key) => set((s) => ({ toggles: { ...s.toggles, [key]: !s.toggles[key] } })),
+    setDecor: (key, on) => {
+      const { type, spots } = DECOR[key];
+      const { items, palette } = get();
+      const present = items.some((i) => i.type === type);
+      if (on === present) return;
+      record();
+      if (!on) { set((s) => ({ items: s.items.filter((i) => i.type !== type), selectedId: null })); return; }
+      const added: StudioItem[] = spots.map(([x, y, scale], n) => ({
+        id: uid(), type, x: x * BOARD_W, y: y * BOARD_H, scale: scale ?? 1, rotation: 0,
+        color: palette[(items.length + n) % palette.length], accent: palette[(items.length + n + 1) % palette.length],
+      }));
+      // Backdrops sit behind everything; other décor goes on top.
+      set({ items: type === "drape" ? [...added, ...items] : [...items, ...added], selectedId: null });
+    },
+    startOver: (t) => { get().applyTemplate(t); set({ references: [] }); },
     addReference: (ref) => set((s) => ({ references: [...s.references, ref].slice(0, 6) })),
     removeReference: (id) => set((s) => ({ references: s.references.filter((r) => r.id !== id), items: s.items.filter((i) => i.refId !== id) })),
     undo: () => {
@@ -173,6 +204,6 @@ export function serializeStudio() {
     templateSlug: s.templateSlug,
     eventType: s.eventType,
     style: s.style,
-    preview3d: { lighting: s.lighting, arrangement: s.arrangement, toggles: s.toggles },
+    preview3d: { lighting: s.lighting, arrangement: s.arrangement, toggles: deriveToggles(s.items) },
   };
 }
