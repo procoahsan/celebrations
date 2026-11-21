@@ -41,3 +41,5 @@
 }
 
 .scrim { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(15, 11, 12, 0.65) 0%, transparent 18%, transparent 52%, rgba(15, 11, 12, 0.85) 100%), linear-gradient(90deg, rgba(15, 11, 12, 0.55) 0%, transparent 45%); }
+
+.archiveLink { display: inline-block; margin-top: 1.2rem; pointer-events: auto; color: var(--gilt); border-bottom: 1px solid currentColor; padding-bottom: 0.2rem; }

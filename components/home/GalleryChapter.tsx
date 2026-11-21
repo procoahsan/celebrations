@@ -111,6 +111,7 @@ export default function GalleryChapter({ projects, heading, chapter = 3, pinLeng
             <TransitionLink key={current.slug} href={`/portfolio/${current.slug}`} curtainLabel={current.title} data-gallery-title data-cursor="view" className={styles.titleLink}>{current.title}</TransitionLink>
           </h2>
           <p className={`legible ${styles.summary}`} data-gallery-meta>{current.summary}</p>
+          <TransitionLink href="/portfolio#archive" curtainLabel="Archive" className={`label legible ${styles.archiveLink}`}>View all photos &amp; films →</TransitionLink>
         </div>
       )}
 

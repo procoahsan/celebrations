@@ -12,6 +12,33 @@ npm run dev
 
 Without any environment variables the public site runs fully on the supplied launch media. Forms answer honestly that online submission isn't connected yet, and the admin portal shows setup instructions.
 
+## Windows quick start and admin login
+
+In PowerShell, from this project folder, run:
+
+```powershell
+npm install
+Copy-Item .env.example .env.local # only if .env.local does not already exist
+npm run dev
+```
+
+Open http://localhost:3000. Stop the server with Ctrl+C. Node.js and npm must be installed. The public site works with blank integration values, but online forms and admin require the services described below.
+
+To enable the admin portal:
+
+1. Create a Supabase project. In its SQL Editor, run `supabase/migrations/20261121_celebrations06.sql` followed by `supabase/migrations/20261122_experience.sql`.
+2. In Supabase Authentication, create an email/password user and copy its user ID. If email confirmation is required, confirm the user before signing in.
+3. In the SQL Editor, authorize that user (replace the UUID with the user ID):
+
+   ```sql
+   insert into public.admin_users (user_id) values ('YOUR-USER-UUID');
+   ```
+
+4. In `.env.local`, set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to the project URL and publishable key from Supabase. Set `SUPABASE_SERVICE_ROLE_KEY` as well for server-side forms and integrations; keep it secret and never prefix it with `NEXT_PUBLIC_`.
+5. Restart `npm run dev`, open http://localhost:3000/admin/login, and sign in with the email and password created above. There is no default admin password. The other environment values enable optional email and external integrations.
+
+The launch portfolio uses supplied archive media until an admin publishes a database project. Once a project is published, the database portfolio replaces the launch portfolio, so add all desired media in Admin → Portfolio before publishing.
+
 ## Homepage chapters
 
 | # | Chapter | Implementation |

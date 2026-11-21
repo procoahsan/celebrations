@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import PageIntro from "@/components/pages/PageIntro";
 import GalleryChapter from "@/components/home/GalleryChapter";
 import ProjectIndex from "@/components/pages/ProjectIndex";
+import MediaArchive from "@/components/pages/MediaArchive";
+import { seedArchive } from "@/lib/seed";
 import PageFooter from "@/components/chrome/PageFooter";
 import { getPortfolio, getSiteContent } from "@/lib/content";
 
@@ -19,6 +21,7 @@ export default async function PortfolioPage() {
         <>
           <GalleryChapter projects={projects} heading="The exhibition" chapter={null} pinLength={80} />
           <ProjectIndex projects={projects} />
+          <MediaArchive items={seedArchive} />
         </>
       ) : (
         <p className="px-[var(--gutter)] py-24 text-ivory/70">New work is being curated. Please visit again soon.</p>

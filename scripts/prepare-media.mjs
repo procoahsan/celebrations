@@ -32,6 +32,8 @@ const images = {
   "mehndi-drapes-sofa": A("WhatsApp Unknown 2026-11-15 at 11.42.10 PM/WhatsApp Image 2026-11-14 at 10.21.05 PM (5).jpeg"),
   "ivory-stage-steps": A("WhatsApp Unknown 2026-11-15 at 11.42.10 PM/WhatsApp Image 2026-11-14 at 10.21.05 PM (6).jpeg"),
   "champagne-drape-lounge": A("WhatsApp Unknown 2026-11-15 at 11.42.10 PM/WhatsApp Image 2026-11-14 at 10.21.05 PM.jpeg"),
+  "welcome-sign-florals": A("WhatsApp Unknown 2026-11-15 at 11.42.10 PM/WhatsApp Image 2026-11-14 at 10.20.57 PM.jpeg"),
+  "welcome-sign-florals-2": A("WhatsApp Unknown 2026-11-15 at 11.42.10 PM/WhatsApp Image 2026-11-14 at 10.20.57 PM (1).jpeg"),
 };
 
 const V1 = "WhatsApp Unknown 2026-11-15 at 11.41.36 PM/";
@@ -52,6 +54,12 @@ const videos = {
   "mehndi-carpet": [A(V1 + "WhatsApp Video 2026-11-14 at 10.13.29 PM.mp4"), 12],
   "mehndi-emerald": [A(V1 + "WhatsApp Video 2026-11-14 at 10.13.32 PM.mp4"), 12],
   "emerald-mehndi-arch": [A(V4 + "WhatsApp Video 2026-11-14 at 10.20.57 PM.mp4"), 12],
+  "floral-arch-detail": [A(V1 + "WhatsApp Video 2026-11-14 at 10.13.40 PM (2).mp4"), 12],
+  "red-gold-lounge": [A(V4 + "WhatsApp Video 2026-11-14 at 10.20.58 PM.mp4"), 12],
+  "colourful-drapery": [A(V4 + "WhatsApp Video 2026-11-14 at 10.21.01 PM.mp4"), 12],
+  "mehndi-floral-seat": [A(V4 + "WhatsApp Video 2026-11-14 at 10.21.05 PM (1).mp4"), 12],
+  "teal-banquet": [A(V4 + "WhatsApp Video 2026-11-14 at 10.21.05 PM (2).mp4"), 12],
+  "emerald-floral-seat": [A(V4 + "WhatsApp Video 2026-11-14 at 10.21.05 PM.mp4"), 12],
   "pink-gold-arch": [R("WhatsApp Video 2026-11-14 at 10.15.04 PM.mp4"), 14],
 };
 
@@ -71,7 +79,7 @@ for (const [slug, src] of Object.entries(images)) {
 for (const [slug, [src, seconds]] of Object.entries(videos)) {
   if (!existsSync(src)) { console.warn("missing", src); continue; }
   run(["-i", src, "-t", String(seconds), "-an", "-vf", "scale=480:-2,fps=30", "-c:v", "libx264", "-preset", "slow", "-crf", "31", "-maxrate", "1000k", "-bufsize", "2000k", "-pix_fmt", "yuv420p", "-movflags", "+faststart", path.join(out, "video", `${slug}.mp4`)]);
-  run(["-ss", "1.2", "-i", src, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", path.join(out, "video", `${slug}.jpg`)]);
+  run(["-i", src, "-frames:v", "1", "-vf", "scale=480:-2", "-q:v", "4", path.join(out, "video", `${slug}.jpg`)]);
   console.log("video", slug);
 }
 

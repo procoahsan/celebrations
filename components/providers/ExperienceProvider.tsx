@@ -75,10 +75,27 @@ export default function ExperienceProvider() {
   // Route change: reset scroll, close menu, refresh triggers once the new page has laid out.
   useEffect(() => {
     set({ menuOpen: false, chapter: null });
+    const hash = window.location.hash;
     lenisInstance?.scrollTo(0, { immediate: true, force: true });
-    if (!window.location.hash) window.scrollTo(0, 0);
-    const id = window.setTimeout(() => ScrollTrigger.refresh(), 120);
-    return () => window.clearTimeout(id);
+    window.scrollTo(0, 0);
+    // Deep links (e.g. /portfolio#archive) land on their section once pins and media have settled;
+    // re-aligned a few times because pin spacers and lazy media change the page height while loading.
+    let userMoved = false;
+    const stop = () => { userMoved = true; };
+    if (hash) ["wheel", "touchstart", "keydown"].forEach((e) => window.addEventListener(e, stop, { once: true, passive: true }));
+    const jump = () => {
+      ScrollTrigger.refresh();
+      const target = hash ? document.querySelector<HTMLElement>(hash) : null;
+      if (!target || userMoved) return;
+      const top = target.getBoundingClientRect().top + window.scrollY;
+      if (lenisInstance) lenisInstance.scrollTo(top, { immediate: true, force: true });
+      else window.scrollTo(0, top);
+    };
+    const timers = hash ? [600, 1500, 3000].map((t) => window.setTimeout(jump, t)) : [window.setTimeout(() => ScrollTrigger.refresh(), 120)];
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      ["wheel", "touchstart", "keydown"].forEach((e) => window.removeEventListener(e, stop));
+    };
   }, [pathname, set]);
 
   // Refresh after fonts settle (avoids pin offsets computed with fallback metrics).

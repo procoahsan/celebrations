@@ -9,3 +9,4 @@ media-archive/
 WhatsApp Image*.jpeg
 WhatsApp Video*.mp4
 *.tsbuildinfo
+.next-preview/
